@@ -536,10 +536,14 @@ function FilterSidebar({
         </div>
         <div className="status-segmented">
           {[
-            ["all", "Все"],
-            ["exported", "Exported"],
-            ["failed", "Failed"],
-          ].map(([value, label]) => (
+            { value: "all", label: "Все", count: result.stats.total },
+            {
+              value: "exported",
+              label: "Exported",
+              count: result.stats.exported,
+            },
+            { value: "failed", label: "Failed", count: result.stats.failed },
+          ].map(({ value, label, count }) => (
             <Link
               className={status === value ? "is-active" : ""}
               href={pageHref(current, {
@@ -551,7 +555,8 @@ function FilterSidebar({
               })}
               key={value}
             >
-              {label}
+              <span>{label}</span>
+              <small>{count.toLocaleString("ru-RU")}</small>
             </Link>
           ))}
         </div>
@@ -574,7 +579,7 @@ function FilterSidebar({
                   defaultChecked={formats.includes(format)}
                 />
                 <span>{format.toUpperCase()}</span>
-                <small>{result.stats.formats[format].toLocaleString("ru-RU")}</small>
+                <small>{result.facets.formats[format].toLocaleString("ru-RU")}</small>
               </label>
             ))}
           </div>

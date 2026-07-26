@@ -3,6 +3,8 @@ import postgres from "postgres";
 export type StatusFilter = "all" | "exported" | "failed";
 export type AccessFilter = "all" | "free" | "restricted";
 export type DocumentFormat = "html" | "txt" | "json" | "pdf" | "meta";
+type VisibleFormat = "html" | "txt" | "json" | "pdf";
+type FormatCounts = Record<VisibleFormat, number>;
 
 export type DocumentRecord = {
   docId: string;
@@ -56,7 +58,10 @@ export type DocumentResult = {
     total: number;
     exported: number;
     failed: number;
-    formats: Record<"html" | "txt" | "json" | "pdf", number>;
+    formats: FormatCounts;
+  };
+  facets: {
+    formats: FormatCounts;
   };
   source: "postgres" | "demo";
 };
@@ -266,7 +271,7 @@ function normalizeDocument(row: RawDocument): DocumentRecord {
 
 function demoDocuments(input: DocumentQuery): DocumentResult {
   const needle = input.query.toLocaleLowerCase("ru");
-  const filtered = DEMO_DOCUMENTS.filter((document) => {
+  const baseFiltered = DEMO_DOCUMENTS.filter((document) => {
     const matchesQuery =
       !needle ||
       document.title.toLocaleLowerCase("ru").includes(needle) ||
@@ -277,9 +282,6 @@ function demoDocuments(input: DocumentQuery): DocumentResult {
       input.access === "all" ||
       (input.access === "free" && document.isFree === true) ||
       (input.access === "restricted" && document.isFree === false);
-    const matchesFormats = input.formats.every((format) =>
-      document.formats.includes(format),
-    );
     const updatedTime = document.updatedAt
       ? new Date(document.updatedAt).getTime()
       : 0;
@@ -293,11 +295,13 @@ function demoDocuments(input: DocumentQuery): DocumentResult {
       matchesQuery &&
       matchesStatus &&
       matchesAccess &&
-      matchesFormats &&
       matchesDateFrom &&
       matchesDateTo
     );
   });
+  const filtered = baseFiltered.filter((document) =>
+    input.formats.every((format) => document.formats.includes(format)),
+  );
   filtered.sort((left, right) => {
     if (input.sort === "doc_id") {
       return left.docId.localeCompare(right.docId, "ru", { numeric: true });
@@ -328,6 +332,14 @@ function demoDocuments(input: DocumentQuery): DocumentResult {
         txt: DEMO_DOCUMENTS.filter((item) => item.formats.includes("txt")).length,
         json: DEMO_DOCUMENTS.filter((item) => item.formats.includes("json")).length,
         pdf: DEMO_DOCUMENTS.filter((item) => item.formats.includes("pdf")).length,
+      },
+    },
+    facets: {
+      formats: {
+        html: baseFiltered.filter((item) => item.formats.includes("html")).length,
+        txt: baseFiltered.filter((item) => item.formats.includes("txt")).length,
+        json: baseFiltered.filter((item) => item.formats.includes("json")).length,
+        pdf: baseFiltered.filter((item) => item.formats.includes("pdf")).length,
       },
     },
     source: "demo",
@@ -370,14 +382,14 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
   const dateToCondition = input.dateTo
     ? sql`d.updated_at < (${input.dateTo}::date + INTERVAL '1 day')`
     : sql`TRUE`;
-  const where = sql`
+  const baseWhere = sql`
     ${searchCondition}
     AND ${statusCondition}
     AND ${accessCondition}
-    AND ${formatsCondition}
     AND ${dateFromCondition}
     AND ${dateToCondition}
   `;
+  const where = sql`${baseWhere} AND ${formatsCondition}`;
   const orderBy =
     input.sort === "doc_id"
       ? sql`d.doc_id::numeric ASC`
@@ -387,7 +399,7 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
   const offset = (input.page - 1) * input.limit;
 
   try {
-    const [rows, countRows, statsRows] = await Promise.all([
+    const [rows, countRows, statsRows, facetRows] = await Promise.all([
       sql<RawDocument[]>`
         SELECT
           d.doc_id,
@@ -459,6 +471,46 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
           )::int AS pdf
         FROM documents
       `,
+      sql<
+        Array<{
+          html: number;
+          txt: number;
+          json: number;
+          pdf: number;
+        }>
+      >`
+        SELECT
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = d.doc_id
+                AND document_outputs.format = 'html'
+            )
+          )::int AS html,
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = d.doc_id
+                AND document_outputs.format = 'txt'
+            )
+          )::int AS txt,
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = d.doc_id
+                AND document_outputs.format = 'json'
+            )
+          )::int AS json,
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = d.doc_id
+                AND document_outputs.format = 'pdf'
+            )
+          )::int AS pdf
+        FROM documents AS d
+        WHERE ${baseWhere}
+      `,
     ]);
     const total = Number(countRows[0]?.total ?? 0);
     const totalPages = Math.max(1, Math.ceil(total / input.limit));
@@ -477,6 +529,14 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
           txt: Number(statsRows[0]?.txt ?? 0),
           json: Number(statsRows[0]?.json ?? 0),
           pdf: Number(statsRows[0]?.pdf ?? 0),
+        },
+      },
+      facets: {
+        formats: {
+          html: Number(facetRows[0]?.html ?? 0),
+          txt: Number(facetRows[0]?.txt ?? 0),
+          json: Number(facetRows[0]?.json ?? 0),
+          pdf: Number(facetRows[0]?.pdf ?? 0),
         },
       },
       source: "postgres",
