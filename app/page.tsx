@@ -34,6 +34,7 @@ import {
   FavoriteButton,
   RefreshButton,
 } from "@/components/client-actions";
+import { ResizableWorkspace } from "@/components/resizable-workspace";
 import {
   getDocumentDetail,
   getDocuments,
@@ -299,7 +300,7 @@ function DetailPanel({
 }) {
   if (!detail) {
     return (
-      <aside className="detail-panel empty-detail">
+      <aside className="detail-panel empty-detail" id="detail-panel">
         <Files aria-hidden="true" size={26} />
         <strong>Документ не выбран</strong>
         <span>Откройте карточку из реестра.</span>
@@ -313,7 +314,7 @@ function DetailPanel({
     source === "postgres" ? `/api/documents/${detail.docId}/preview` : "#";
 
   return (
-    <aside className="detail-panel">
+    <aside className="detail-panel" id="detail-panel">
       <div className="detail-topline">
         <Link
           className="icon-button close-detail"
@@ -519,7 +520,7 @@ function FilterSidebar({
   current: URLSearchParams;
 }) {
   return (
-    <aside className="filter-sidebar">
+    <aside className="filter-sidebar" id="filter-panel">
       <div className="sidebar-heading">
         <strong>Фильтры</strong>
         <SlidersHorizontal aria-hidden="true" size={18} />
@@ -715,7 +716,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
         </div>
       ) : null}
 
-      <div className="workspace-grid">
+      <ResizableWorkspace>
         <FilterSidebar
           result={result}
           query={query}
@@ -728,7 +729,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
           current={current}
         />
 
-        <section className="registry-panel">
+        <section className="registry-panel" id="registry-panel">
           <div className="table-head">
             <Link
               href={pageHref(current, {
@@ -828,7 +829,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
         </section>
 
         <DetailPanel detail={detail} source={result.source} anchor={anchor} current={current} />
-      </div>
+      </ResizableWorkspace>
     </main>
   );
 }

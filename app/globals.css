@@ -248,10 +248,19 @@ summary:focus-visible {
 }
 
 .workspace-grid {
+  --filter-panel-width: 240px;
+  --detail-panel-width: 390px;
+  --workspace-resizer-size: 12px;
   height: calc(100vh - 60px);
   display: grid;
-  grid-template-columns: 240px minmax(660px, 1fr) minmax(360px, 390px);
-  gap: 12px;
+  grid-template-columns:
+    var(--filter-panel-width)
+    var(--workspace-resizer-size)
+    minmax(440px, 1fr)
+    var(--workspace-resizer-size)
+    var(--detail-panel-width);
+  grid-template-areas: "filters filter-resizer registry detail-resizer detail";
+  gap: 0;
   padding: 12px;
   overflow: hidden;
 }
@@ -271,9 +280,87 @@ summary:focus-visible {
 }
 
 .filter-sidebar {
+  grid-area: filters;
   display: flex;
   flex-direction: column;
   overflow: auto;
+}
+
+.registry-panel {
+  grid-area: registry;
+}
+
+.detail-panel {
+  grid-area: detail;
+}
+
+.workspace-resizer {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #708197;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.workspace-resizer-filter {
+  grid-area: filter-resizer;
+}
+
+.workspace-resizer-detail {
+  grid-area: detail-resizer;
+}
+
+.workspace-resizer::before {
+  position: absolute;
+  inset-block: 8px;
+  left: 50%;
+  width: 2px;
+  content: "";
+  background: #d8e0ea;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition:
+    width 120ms ease,
+    background-color 120ms ease;
+}
+
+.workspace-resizer svg {
+  position: relative;
+  padding: 2px 0;
+  background: var(--app-bg);
+  opacity: 0.72;
+}
+
+.workspace-resizer:hover,
+.workspace-resizer:focus-visible,
+.workspace-grid.is-resizing .workspace-resizer {
+  color: var(--blue);
+  outline: none;
+}
+
+.workspace-resizer:hover::before,
+.workspace-resizer:focus-visible::before,
+.workspace-grid.is-resizing .workspace-resizer::before {
+  width: 3px;
+  background: var(--blue);
+}
+
+.workspace-grid.is-resizing iframe {
+  pointer-events: none;
+}
+
+body.workspace-resize-active {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .sidebar-heading {
@@ -1048,8 +1135,6 @@ summary:focus-visible {
   }
 
   .workspace-grid {
-    grid-template-columns: 215px minmax(600px, 1fr) 350px;
-    gap: 8px;
     padding: 8px;
   }
 }
@@ -1057,9 +1142,16 @@ summary:focus-visible {
 @media (max-width: 1120px) {
   .workspace-grid {
     grid-template-columns: 215px minmax(0, 1fr);
+    grid-template-areas: "filters registry";
+    gap: 8px;
+  }
+
+  .workspace-resizer {
+    display: none;
   }
 
   .detail-panel {
+    grid-area: auto;
     position: fixed;
     top: 70px;
     right: 10px;
