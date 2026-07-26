@@ -11,7 +11,9 @@ import {
   FileJson,
   FileText,
   FolderArchive,
+  Scale,
   Search,
+  Sparkles,
 } from "lucide-react";
 import {
   getDocumentDetail,
@@ -25,8 +27,8 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "PRG Архив",
-  description: "Каталог правовых документов из базы PRG Parser",
+  title: "AI Advokat",
+  description: "Интеллектуальная правовая база Казахстана",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -46,6 +48,11 @@ function isStatusFilter(value: string | undefined): value is StatusFilter {
 
 function isAccessFilter(value: string | undefined): value is AccessFilter {
   return value === "all" || value === "free" || value === "restricted";
+}
+
+function normalizeAnchor(value: string | undefined) {
+  if (!value || !/^[A-Za-z][A-Za-z0-9_-]{0,80}$/.test(value)) return null;
+  return value;
 }
 
 function pageHref(
@@ -127,9 +134,11 @@ function DocumentRow({
 function DetailPanel({
   detail,
   source,
+  anchor,
 }: {
   detail: Awaited<ReturnType<typeof getDocumentDetail>>;
   source: "postgres" | "demo";
+  anchor: string | null;
 }) {
   if (!detail) {
     return (
@@ -204,17 +213,30 @@ function DetailPanel({
 
       <section className="preview-section">
         <div className="section-heading">
-          <h3>Фрагмент текста</h3>
-          <span>{formatDate(detail.updatedAt)}</span>
+          <h3>{source === "postgres" ? "HTML-предпросмотр" : "Фрагмент текста"}</h3>
+          <span>
+            {source === "postgres" ? "Ссылки активны" : formatDate(detail.updatedAt)}
+          </span>
         </div>
-        <div className="document-preview">
-          {detail.preview
-            ? detail.preview
-                .split(/\n{2,}/)
-                .slice(0, 8)
-                .map((paragraph, index) => <p key={index}>{paragraph}</p>)
-            : <p>Текстовый файл пока не сохранён.</p>}
-        </div>
+        {source === "postgres" ? (
+          <iframe
+            className="html-preview"
+            src={`/api/documents/${detail.docId}/preview${
+              anchor ? `#${encodeURIComponent(anchor)}` : ""
+            }`}
+            title={`Предпросмотр документа ${detail.docId}`}
+            sandbox="allow-popups allow-popups-to-escape-sandbox"
+          />
+        ) : (
+          <div className="document-preview">
+            {detail.preview
+              ? detail.preview
+                  .split(/\n{2,}/)
+                  .slice(0, 8)
+                  .map((paragraph, index) => <p key={index}>{paragraph}</p>)
+              : <p>Текстовый файл пока не сохранён.</p>}
+          </div>
+        )}
       </section>
     </aside>
   );
@@ -226,6 +248,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   const page = toPositiveInt(first(raw.page), 1);
   const requestedStatus = first(raw.status);
   const requestedAccess = first(raw.access);
+  const anchor = normalizeAnchor(first(raw.anchor));
   const status: StatusFilter = isStatusFilter(requestedStatus)
     ? requestedStatus
     : "all";
@@ -244,6 +267,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   if (access !== "all") currentParams.access = access;
   if (page > 1) currentParams.page = String(page);
   if (selectedId) currentParams.doc = selectedId;
+  if (anchor) currentParams.anchor = anchor;
 
   const from = result.total === 0 ? 0 : (result.page - 1) * result.limit + 1;
   const to = Math.min(result.page * result.limit, result.total);
@@ -253,11 +277,18 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
       <header className="topbar">
         <Link className="brand" href="/">
           <span className="brand-mark">
-            <FolderArchive aria-hidden="true" size={20} />
+            <Scale aria-hidden="true" size={21} />
+            <Sparkles
+              className="brand-spark"
+              aria-hidden="true"
+              size={12}
+            />
           </span>
           <span>
-            <strong>PRG Архив</strong>
-            <small>Правовые документы</small>
+            <strong>
+              <span>AI</span> Advokat
+            </strong>
+            <small>Правовая база Казахстана</small>
           </span>
         </Link>
         <div className="connection-pill">
@@ -270,8 +301,8 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
       <section className="workspace">
         <div className="workspace-heading">
           <div>
-            <span className="eyebrow">База документов</span>
-            <h1>Каталог PRG Parser</h1>
+            <span className="eyebrow">AI Knowledge Base</span>
+            <h1>База правовых документов</h1>
           </div>
           <span className="result-count">{result.total.toLocaleString("ru-RU")} документов</span>
         </div>
@@ -325,6 +356,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
                 status: value === "all" ? null : String(value),
                 page: null,
                 doc: null,
+                anchor: null,
               })}
               key={String(value)}
             >
@@ -351,7 +383,10 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
                   <DocumentRow
                     document={document}
                     active={detail?.docId === document.docId}
-                    href={pageHref(currentParams, { doc: document.docId })}
+                    href={pageHref(currentParams, {
+                      doc: document.docId,
+                      anchor: null,
+                    })}
                     key={document.docId}
                   />
                 ))
@@ -374,6 +409,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
                   href={pageHref(currentParams, {
                     page: Math.max(1, result.page - 1),
                     doc: null,
+                    anchor: null,
                   })}
                   aria-disabled={result.page <= 1}
                   title="Предыдущая страница"
@@ -388,6 +424,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
                   href={pageHref(currentParams, {
                     page: Math.min(result.totalPages, result.page + 1),
                     doc: null,
+                    anchor: null,
                   })}
                   aria-disabled={result.page >= result.totalPages}
                   title="Следующая страница"
@@ -398,7 +435,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
             </footer>
           </section>
 
-          <DetailPanel detail={detail} source={result.source} />
+          <DetailPanel detail={detail} source={result.source} anchor={anchor} />
         </div>
       </section>
     </main>

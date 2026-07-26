@@ -1,6 +1,6 @@
-# PRG Parser Front
+# AI Advokat
 
-Next.js-интерфейс для просмотра документов, собранных `prg-parser`.
+Next.js-интерфейс AI Advokat для просмотра документов, собранных `prg-parser`.
 
 ## Возможности
 
