@@ -638,7 +638,14 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   });
 
   const panelClosed = first(raw.panel) === "closed";
-  const selectedId = panelClosed ? null : first(raw.doc) ?? result.documents[0]?.docId ?? null;
+  const defaultDocument =
+    result.documents.find(
+      (document) =>
+        document.status === "exported" && document.formats.includes("html"),
+    ) ?? result.documents[0];
+  const selectedId = panelClosed
+    ? null
+    : first(raw.doc) ?? defaultDocument?.docId ?? null;
   const detail = selectedId ? await getDocumentDetail(selectedId, result.source) : null;
 
   const current = new URLSearchParams();
