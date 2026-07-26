@@ -462,25 +462,27 @@ function DetailPanel({
 
       <section className="preview-section">
         <h3>Предпросмотр документа</h3>
-        {source === "postgres" && outputs.has("html") ? (
-          <iframe
-            className="html-preview"
-            src={`/api/documents/${detail.docId}/preview${
-              anchor ? `#${encodeURIComponent(anchor)}` : ""
-            }`}
-            title={`Предпросмотр документа ${detail.docId}`}
-            sandbox="allow-popups allow-popups-to-escape-sandbox"
-          />
-        ) : (
-          <div className="document-preview">
-            {detail.preview
-              ? detail.preview
-                  .split(/\n{2,}/)
-                  .slice(0, 12)
-                  .map((paragraph, index) => <p key={index}>{paragraph}</p>)
-              : <p>Предпросмотр для этого документа недоступен.</p>}
-          </div>
-        )}
+        <div className="html-preview-stage">
+          {source === "postgres" && outputs.has("html") ? (
+            <iframe
+              className="html-preview"
+              src={`/api/documents/${detail.docId}/preview${
+                anchor ? `#${encodeURIComponent(anchor)}` : ""
+              }`}
+              title={`Предпросмотр документа ${detail.docId}`}
+              sandbox="allow-popups allow-popups-to-escape-sandbox"
+            />
+          ) : (
+            <div className="document-preview">
+              {detail.preview
+                ? detail.preview
+                    .split(/\n{2,}/)
+                    .slice(0, 12)
+                    .map((paragraph, index) => <p key={index}>{paragraph}</p>)
+                : <p>Предпросмотр для этого документа недоступен.</p>}
+            </div>
+          )}
+        </div>
       </section>
 
       <details className="additional-details">
