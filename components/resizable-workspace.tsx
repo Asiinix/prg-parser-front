@@ -29,10 +29,10 @@ type DragState = {
 const STORAGE_KEY = "ai-advokat:workspace-widths";
 const DEFAULT_WIDTHS: PanelWidths = { filter: 240, detail: 390 };
 const FILTER_RANGE = { min: 190, max: 380 };
-const DETAIL_RANGE = { min: 300, max: 650 };
+const DETAIL_RANGE = { min: 300, max: 1050 };
 const HANDLE_SPACE = 24;
-const MIN_REGISTRY_WIDTH = 440;
-const PREFERRED_REGISTRY_WIDTH = 560;
+const MIN_REGISTRY_WIDTH = 320;
+const PREFERRED_REGISTRY_WIDTH = 420;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));

@@ -32,6 +32,7 @@ import {
   AutoSubmitForm,
   CopyButton,
   FavoriteButton,
+  LogoutButton,
   RefreshButton,
 } from "@/components/client-actions";
 import { ResizableWorkspace } from "@/components/resizable-workspace";
@@ -706,7 +707,10 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
             <strong>{result.stats.formats.json.toLocaleString("ru-RU")}</strong>
           </span>
         </div>
-        <RefreshButton />
+        <div className="topbar-actions">
+          <RefreshButton />
+          <LogoutButton />
+        </div>
       </header>
 
       {result.source === "demo" ? (

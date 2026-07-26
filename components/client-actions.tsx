@@ -3,6 +3,7 @@
 import {
   Check,
   Copy,
+  LogOut,
   RefreshCw,
   Star,
 } from "lucide-react";
@@ -100,6 +101,32 @@ export function RefreshButton() {
       disabled={pending}
     >
       <RefreshCw aria-hidden="true" className={pending ? "is-spinning" : ""} size={18} />
+    </button>
+  );
+}
+
+export function LogoutButton() {
+  const [pending, setPending] = useState(false);
+
+  async function logout() {
+    setPending(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      window.location.replace("/login");
+    }
+  }
+
+  return (
+    <button
+      className="topbar-logout"
+      type="button"
+      onClick={logout}
+      title="Sign out"
+      aria-label="Sign out"
+      disabled={pending}
+    >
+      <LogOut aria-hidden="true" size={18} />
     </button>
   );
 }
