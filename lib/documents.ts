@@ -12,6 +12,7 @@ export type DocumentRecord = {
   isFree: boolean | null;
   pages: number | null;
   formats: DocumentFormat[];
+  linkedCount: number;
   updatedAt: string | null;
 };
 
@@ -27,6 +28,10 @@ export type DocumentDetail = DocumentRecord & {
   preview: string | null;
   outputs: DocumentOutput[];
   linkedDocIds: string[];
+  paragraphCount: number | null;
+  totalSizeBytes: number;
+  totalSizeLabel: string;
+  fileName: string;
 };
 
 type DocumentQuery = {
@@ -34,10 +39,14 @@ type DocumentQuery = {
   page: number;
   status: StatusFilter;
   access: AccessFilter;
+  formats: DocumentFormat[];
+  dateFrom: string | null;
+  dateTo: string | null;
+  sort: "updated" | "doc_id" | "title";
   limit: number;
 };
 
-type DocumentResult = {
+export type DocumentResult = {
   documents: DocumentRecord[];
   page: number;
   limit: number;
@@ -47,6 +56,7 @@ type DocumentResult = {
     total: number;
     exported: number;
     failed: number;
+    formats: Record<"html" | "txt" | "json" | "pdf", number>;
   };
   source: "postgres" | "demo";
 };
@@ -59,6 +69,7 @@ type RawDocument = {
   is_free: boolean | null;
   pages: number | null;
   formats: string | null;
+  linked_count: number | string | null;
   updated_at: Date | string | null;
 };
 
@@ -72,6 +83,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 4,
     formats: ["html", "txt", "json"],
+    linkedCount: 18,
     updatedAt: "2026-07-25T13:16:58+00:00",
   },
   {
@@ -83,6 +95,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 1,
     formats: ["html", "txt", "json"],
+    linkedCount: 6,
     updatedAt: "2026-07-25T13:16:54+00:00",
   },
   {
@@ -94,6 +107,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 9,
     formats: ["html", "txt", "json"],
+    linkedCount: 12,
     updatedAt: "2026-07-25T13:16:52+00:00",
   },
   {
@@ -105,6 +119,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 4,
     formats: ["html", "txt", "json"],
+    linkedCount: 0,
     updatedAt: "2026-07-25T13:16:49+00:00",
   },
   {
@@ -116,6 +131,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 2,
     formats: ["html", "txt", "json"],
+    linkedCount: 24,
     updatedAt: "2026-07-25T13:16:46+00:00",
   },
   {
@@ -127,6 +143,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 2,
     formats: ["html", "txt", "json"],
+    linkedCount: 31,
     updatedAt: "2026-07-25T13:16:45+00:00",
   },
   {
@@ -137,6 +154,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 14,
     formats: ["html", "txt", "json"],
+    linkedCount: 27,
     updatedAt: "2026-07-25T13:16:43+00:00",
   },
   {
@@ -148,6 +166,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 26,
     formats: ["html", "txt", "json"],
+    linkedCount: 8,
     updatedAt: "2026-07-25T13:16:34+00:00",
   },
   {
@@ -158,6 +177,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 2,
     formats: ["html", "txt", "json"],
+    linkedCount: 5,
     updatedAt: "2026-07-25T13:16:18+00:00",
   },
   {
@@ -168,6 +188,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: true,
     pages: 1,
     formats: ["html", "txt", "json"],
+    linkedCount: 2,
     updatedAt: "2026-07-25T13:16:17+00:00",
   },
   {
@@ -178,6 +199,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: null,
     pages: null,
     formats: [],
+    linkedCount: 0,
     updatedAt: "2026-07-25T13:16:56+00:00",
   },
   {
@@ -188,6 +210,7 @@ const DEMO_DOCUMENTS: DocumentRecord[] = [
     isFree: null,
     pages: null,
     formats: [],
+    linkedCount: 0,
     updatedAt: "2026-07-25T13:16:55+00:00",
   },
 ];
@@ -233,6 +256,7 @@ function normalizeDocument(row: RawDocument): DocumentRecord {
     isFree: row.is_free,
     pages: row.pages,
     formats: normalizeFormats(row.formats),
+    linkedCount: Number(row.linked_count ?? 0),
     updatedAt:
       row.updated_at instanceof Date
         ? row.updated_at.toISOString()
@@ -253,7 +277,38 @@ function demoDocuments(input: DocumentQuery): DocumentResult {
       input.access === "all" ||
       (input.access === "free" && document.isFree === true) ||
       (input.access === "restricted" && document.isFree === false);
-    return matchesQuery && matchesStatus && matchesAccess;
+    const matchesFormats = input.formats.every((format) =>
+      document.formats.includes(format),
+    );
+    const updatedTime = document.updatedAt
+      ? new Date(document.updatedAt).getTime()
+      : 0;
+    const matchesDateFrom =
+      !input.dateFrom ||
+      updatedTime >= new Date(`${input.dateFrom}T00:00:00`).getTime();
+    const matchesDateTo =
+      !input.dateTo ||
+      updatedTime < new Date(`${input.dateTo}T23:59:59.999`).getTime();
+    return (
+      matchesQuery &&
+      matchesStatus &&
+      matchesAccess &&
+      matchesFormats &&
+      matchesDateFrom &&
+      matchesDateTo
+    );
+  });
+  filtered.sort((left, right) => {
+    if (input.sort === "doc_id") {
+      return left.docId.localeCompare(right.docId, "ru", { numeric: true });
+    }
+    if (input.sort === "title") {
+      return left.title.localeCompare(right.title, "ru");
+    }
+    return (
+      new Date(right.updatedAt ?? 0).getTime() -
+      new Date(left.updatedAt ?? 0).getTime()
+    );
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / input.limit));
   const page = Math.min(input.page, totalPages);
@@ -268,6 +323,12 @@ function demoDocuments(input: DocumentQuery): DocumentResult {
       total: DEMO_DOCUMENTS.length,
       exported: DEMO_DOCUMENTS.filter((item) => item.status === "exported").length,
       failed: DEMO_DOCUMENTS.filter((item) => item.status === "failed").length,
+      formats: {
+        html: DEMO_DOCUMENTS.filter((item) => item.formats.includes("html")).length,
+        txt: DEMO_DOCUMENTS.filter((item) => item.formats.includes("txt")).length,
+        json: DEMO_DOCUMENTS.filter((item) => item.formats.includes("json")).length,
+        pdf: DEMO_DOCUMENTS.filter((item) => item.formats.includes("pdf")).length,
+      },
     },
     source: "demo",
   };
@@ -291,7 +352,38 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
       : input.access === "free"
         ? sql`d.is_free IS TRUE`
         : sql`d.is_free IS FALSE`;
-  const where = sql`${searchCondition} AND ${statusCondition} AND ${accessCondition}`;
+  const formatsCondition = input.formats.length
+    ? sql`NOT EXISTS (
+        SELECT 1
+        FROM unnest(${sql.array(input.formats)}::text[]) AS wanted(format)
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM document_outputs AS filtered_output
+          WHERE filtered_output.doc_id = d.doc_id
+            AND filtered_output.format = wanted.format
+        )
+      )`
+    : sql`TRUE`;
+  const dateFromCondition = input.dateFrom
+    ? sql`d.updated_at >= ${input.dateFrom}::date`
+    : sql`TRUE`;
+  const dateToCondition = input.dateTo
+    ? sql`d.updated_at < (${input.dateTo}::date + INTERVAL '1 day')`
+    : sql`TRUE`;
+  const where = sql`
+    ${searchCondition}
+    AND ${statusCondition}
+    AND ${accessCondition}
+    AND ${formatsCondition}
+    AND ${dateFromCondition}
+    AND ${dateToCondition}
+  `;
+  const orderBy =
+    input.sort === "doc_id"
+      ? sql`d.doc_id::numeric ASC`
+      : input.sort === "title"
+        ? sql`COALESCE(d.title, '') ASC, d.doc_id DESC`
+        : sql`d.updated_at DESC, d.doc_id DESC`;
   const offset = (input.page - 1) * input.limit;
 
   try {
@@ -305,10 +397,15 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
           d.is_free,
           d.pages,
           d.formats,
-          d.updated_at
+          d.updated_at,
+          (
+            SELECT COUNT(*)::int
+            FROM document_links AS link_count
+            WHERE link_count.doc_id = d.doc_id
+          ) AS linked_count
         FROM documents AS d
         WHERE ${where}
-        ORDER BY d.updated_at DESC, d.doc_id DESC
+        ORDER BY ${orderBy}
         LIMIT ${input.limit}
         OFFSET ${offset}
       `,
@@ -317,11 +414,49 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
         FROM documents AS d
         WHERE ${where}
       `,
-      sql<Array<{ total: number; exported: number; failed: number }>>`
+      sql<
+        Array<{
+          total: number;
+          exported: number;
+          failed: number;
+          html: number;
+          txt: number;
+          json: number;
+          pdf: number;
+        }>
+      >`
         SELECT
           COUNT(*)::int AS total,
           COUNT(*) FILTER (WHERE status = 'exported')::int AS exported,
-          COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
+          COUNT(*) FILTER (WHERE status = 'failed')::int AS failed,
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = documents.doc_id
+                AND document_outputs.format = 'html'
+            )
+          )::int AS html,
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = documents.doc_id
+                AND document_outputs.format = 'txt'
+            )
+          )::int AS txt,
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = documents.doc_id
+                AND document_outputs.format = 'json'
+            )
+          )::int AS json,
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM document_outputs
+              WHERE document_outputs.doc_id = documents.doc_id
+                AND document_outputs.format = 'pdf'
+            )
+          )::int AS pdf
         FROM documents
       `,
     ]);
@@ -337,6 +472,12 @@ export async function getDocuments(input: DocumentQuery): Promise<DocumentResult
         total: Number(statsRows[0]?.total ?? 0),
         exported: Number(statsRows[0]?.exported ?? 0),
         failed: Number(statsRows[0]?.failed ?? 0),
+        formats: {
+          html: Number(statsRows[0]?.html ?? 0),
+          txt: Number(statsRows[0]?.txt ?? 0),
+          json: Number(statsRows[0]?.json ?? 0),
+          pdf: Number(statsRows[0]?.pdf ?? 0),
+        },
       },
       source: "postgres",
     };
@@ -376,6 +517,10 @@ export async function getDocumentDetail(
         sizeLabel: "Демо",
       })),
       linkedDocIds: [],
+      paragraphCount: document.pages ? document.pages * 24 : null,
+      totalSizeBytes: 0,
+      totalSizeLabel: "Демо",
+      fileName: `${document.docId}.html`,
     };
   }
 
@@ -393,6 +538,8 @@ export async function getDocumentDetail(
           size_bytes: number;
         }> | null;
         linked_doc_ids: string[] | null;
+        paragraph_count: number | string | null;
+        total_size_bytes: number | string | null;
       }
     >
   >`
@@ -428,13 +575,38 @@ export async function getDocumentDetail(
         SELECT array_agg(linked_doc_id ORDER BY position)
         FROM document_links
         WHERE document_links.doc_id = d.doc_id
-      ) AS linked_doc_ids
+      ) AS linked_doc_ids,
+      (
+        SELECT
+          CASE
+            WHEN convert_from(meta_output.content, 'UTF8')::jsonb ? 'paragraphs'
+            THEN (
+              convert_from(meta_output.content, 'UTF8')::jsonb ->> 'paragraphs'
+            )::int
+            ELSE NULL
+          END
+        FROM document_outputs AS meta_output
+        WHERE meta_output.doc_id = d.doc_id
+          AND meta_output.format = 'meta'
+        LIMIT 1
+      ) AS paragraph_count,
+      (
+        SELECT COALESCE(SUM(size_bytes), 0)
+        FROM document_outputs AS sized_output
+        WHERE sized_output.doc_id = d.doc_id
+      ) AS total_size_bytes,
+      (
+        SELECT COUNT(*)::int
+        FROM document_links AS link_count
+        WHERE link_count.doc_id = d.doc_id
+      ) AS linked_count
     FROM documents AS d
     WHERE d.doc_id = ${docId}
     LIMIT 1
   `;
   const row = rows[0];
   if (!row) return null;
+  const totalSizeBytes = Number(row.total_size_bytes ?? 0);
 
   return {
     ...normalizeDocument(row),
@@ -447,5 +619,10 @@ export async function getDocumentDetail(
       sizeLabel: humanFileSize(Number(output.size_bytes)),
     })),
     linkedDocIds: row.linked_doc_ids ?? [],
+    paragraphCount:
+      row.paragraph_count === null ? null : Number(row.paragraph_count),
+    totalSizeBytes,
+    totalSizeLabel: humanFileSize(totalSizeBytes),
+    fileName: `${docId}.html`,
   };
 }
