@@ -585,7 +585,7 @@ function FilterSidebar({
           </div>
         </section>
 
-        <section className="filter-section">
+        <section className="filter-section filter-dates">
           <div className="filter-title"><span>Диапазон дат обновления</span></div>
           <label className="date-field">
             <span>от</span>
@@ -597,7 +597,7 @@ function FilterSidebar({
           </label>
         </section>
 
-        <section className="filter-section">
+        <section className="filter-section filter-page-size">
           <div className="filter-title"><span>Размер страницы</span></div>
           <label className="page-size-field">
             <select name="limit" defaultValue={limit}>

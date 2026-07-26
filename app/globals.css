@@ -1314,17 +1314,21 @@ body.workspace-resize-active {
   }
 
   .filter-sidebar {
-    max-height: 355px;
     margin-bottom: 8px;
+    overflow: visible;
   }
 
   .filter-form {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: block;
   }
 
   .filter-form .filter-section {
-    border-right: 1px solid var(--line);
+    border-right: 0;
+  }
+
+  .filter-dates,
+  .filter-page-size {
+    display: none;
   }
 
   .registry-panel {
@@ -1483,14 +1487,6 @@ body.workspace-resize-active {
 
   .top-stat span {
     display: none;
-  }
-
-  .filter-form {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-sidebar {
-    max-height: 520px;
   }
 
   .registry-panel {
